@@ -7,24 +7,32 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Handler;
-import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.DataOutputStream;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 
 import org.hacktivity.Base64;
 import org.hacktivity.BlumBlumShub;
+import org.hacktivity.Web;
 
 import java.util.List;
 import java.util.Timer;
@@ -32,20 +40,19 @@ import java.util.TimerTask;
 
 import static java.sql.Types.NULL;
 
-import org.hacktivity.BlumBlumShub;
+public class WaspActivity extends AppCompatActivity implements SensorEventListener {
 
-public class MainActivity extends AppCompatActivity {
+    // TODO: multiple entropy pools.
 
+    private static int ENTROPY_POOL_SIZE = 8192;
 
-
-    // TODO: create and maintain an entropy pool
-    private int ENTROPY_POOL_SIZE = 8192;
-    private int[] pool;
+    private int[] pool = new int[ENTROPY_POOL_SIZE];
     private int pool_ctr = 0;
+    private int pool_iter = 0;
 
     private SensorManager sensorManager;
-    private BlumBlumShub bbs = new BlumBlumShub(2310);
 
+    // timestamps for sensors
     private Sensor sensorAccelerometer;
     private Sensor sensorAmbientTemperature;
     private Sensor sensorGravity;
@@ -63,9 +70,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_wasp);
 
+        //Intent intent = getIntent();
+
+        //String message = intent.getStringExtra(MainActivity.EXTRA_MESSAGE);
+        //TextView textView = new TextView(this);
+        //textView.setTextSize(40);
+        //textView.setText(message);
+
+        //ViewGroup layout = (ViewGroup) findViewById(R.id.activity_display_message);
+        //layout.addView(textView);
         poolTextView = (TextView) findViewById(R.id.poolTextView);
+
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 
         pool = new int[ENTROPY_POOL_SIZE];
 
@@ -79,22 +97,20 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        sensorAmbientTemperature = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
+        sensorGravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+        sensorGyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        sensorLight = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        sensorLinearAcceleration = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        sensorMagneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        sensorPressure = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        sensorProximity = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+        sensorRelativeHumidity = sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
+        sensorRotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+
         // List all sensors available
         //List<Sensor> deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
-
-        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-
-        sensorAccelerometer =      sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        sensorAmbientTemperature = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
-        sensorGravity =            sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
-        sensorGyroscope =          sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        sensorLight =              sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-        sensorLinearAcceleration = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-        sensorMagneticField =      sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        sensorPressure =           sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
-        sensorProximity =          sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-        sensorRelativeHumidity =   sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
-        sensorRotationVector =     sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
 
         // run in the background.
         final Handler handler = new Handler();
@@ -157,6 +173,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onResume() {
+        super.onResume();
 
         sensorManager.registerListener(this, sensorAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         sensorManager.registerListener(this, sensorAmbientTemperature, SensorManager.SENSOR_DELAY_FASTEST);
@@ -173,6 +190,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        super.onPause();
         sensorManager.unregisterListener(this);
     }
 
@@ -253,34 +271,90 @@ public class MainActivity extends AppCompatActivity {
         addEntropy(event.values);
     }
 
+    private void addEntropy (float[] entropy) {
 
+        int i;
+        for (i=0;i<entropy.length;i++) {
+            this.pool[this.pool_ctr] = Float.floatToIntBits(this.pool[this.pool_ctr]) ^ Float.floatToIntBits(entropy[i]);
 
-    public void updateText () {
+            this.pool_ctr++;
+            if (this.pool_ctr == this.pool.length) {
+                this.pool_ctr = 0;
+            }
+        }
+    }
 
-        byte data[] = getRandom().getBytes();
-        try {
-            // catches IOException below
-            final String TESTSTRING = data.toString();
+    public String getPool() {
 
-            FileOutputStream fOut = openFileOutput("honeycomb.data", NULL);
-            OutputStreamWriter osw = new OutputStreamWriter(fOut);
-
-            // Write the string to the file
-            osw.write(TESTSTRING);
-
-            osw.flush();
-            osw.close();
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
+        // TODO: Something better.
+        String ret = "";
+        int i;
+        for (i = 0; i < this.pool.length; i++) {
+            ret += (char) Integer.reverseBytes(this.pool[i]); // Get low bits
         }
 
+        return (ret);
+    }
 
+    public void updateText () {
+        byte data[] = getPool().getBytes();
+
+        if (pool_iter == 2) {
+
+            // Publish randomness to hacktivity.org
+
+            try {
+                // catches IOException below
+                final String TESTSTRING = new String(data);
+
+                FileOutputStream fOut = openFileOutput("honeycomb.data", NULL);
+                OutputStreamWriter osw = new OutputStreamWriter(fOut);
+
+                // Write the string to the file
+                osw.write(TESTSTRING);
+
+                osw.flush();
+                osw.close();
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            }
+
+            //poolTextView.setText(data.toString());
+
+            pool_iter = 0;
+
+            {
+                // Send data to hacktivity.org;
+                //final byte[] postData = ("pool=" + Base64.encodeBytes(data)).getBytes();
+                final String postData = "pool=" + Base64.encodeBytes(data);
+                class SimpleThread extends Thread {
+                    public SimpleThread(String str) {
+                        super(str);
+                    }
+
+                    public void run() {
+                        {
+                            try { Web.sendPost(postData); } catch (Exception e) {}
+                        }
+                    }
+                }
+                new SimpleThread("st").start();
+
+            }
+
+
+        }
+        else {
+            pool_iter++;
+        }
+
+        poolTextView.setText(new String(data));
+
+        /*
         try {
             FileInputStream fIn = openFileInput("honeycomb.data");
             InputStreamReader isr = new InputStreamReader(fIn);
 
-        /* Prepare a char-Array that will
-         * hold the chars we read back in. */
             char[] inputBuffer = new char[ENTROPY_POOL_SIZE];
 
             // Fill the Buffer with data from the file
@@ -293,7 +367,6 @@ public class MainActivity extends AppCompatActivity {
 
         } catch (IOException ioe)
         {ioe.printStackTrace();}
+        */
     }
-
-
 }

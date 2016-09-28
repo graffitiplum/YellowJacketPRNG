@@ -12,13 +12,4 @@
     tools:context="org.hacktivity.yellowjacketprng.MainActivity">
 
 
-    <TextView
-        android:id="@+id/poolTextView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
-        android:fontFamily="monospace"
-        android:text="" />
-
 </RelativeLayout>
