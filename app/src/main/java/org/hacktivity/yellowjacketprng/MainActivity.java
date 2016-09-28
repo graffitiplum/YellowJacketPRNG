@@ -37,22 +37,5 @@ public class MainActivity extends AppCompatActivity {
 
     public void updateText () {
 
-        try {
-            FileInputStream fIn = openFileInput("honeycomb.data");
-            InputStreamReader isr = new InputStreamReader(fIn);
-
-            char[] inputBuffer = new char[ENTROPY_POOL_SIZE];
-
-            // Fill the Buffer with data from the file
-            isr.read(inputBuffer);
-
-            // Transform the chars to a String
-            String readString = new String(inputBuffer);
-
-            poolTextView.setText(readString);
-
-        } catch (IOException ioe)
-        {ioe.printStackTrace();}
-
     }
 }

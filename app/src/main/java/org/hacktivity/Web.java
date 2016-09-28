@@ -12,9 +12,8 @@ public class Web {
     private static String USER_AGENT = "Mozilla/5.0";
 
     // HTTP POST request
-    public static void sendPost(String data) throws Exception {
+    public static void sendPost(String url, String data) throws Exception {
 
-        String url = "https://hacktivity.org/yellowjacket/pool.php";
         URL obj = new URL(url);
         HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
 
@@ -33,9 +32,6 @@ public class Web {
         wr.close();
 
         int responseCode = con.getResponseCode();
-        System.out.println("\nSending 'POST' request to URL : " + url);
-        System.out.println("Post parameters : " + urlParameters);
-        System.out.println("Response Code : " + responseCode);
 
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(con.getInputStream()));
@@ -46,9 +42,6 @@ public class Web {
             response.append(inputLine);
         }
         in.close();
-
-        //print result
-        System.out.println(response.toString());
 
     }
 

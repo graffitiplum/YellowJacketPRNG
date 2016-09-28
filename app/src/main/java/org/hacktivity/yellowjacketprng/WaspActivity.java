@@ -129,7 +129,6 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onSensorChanged(SensorEvent event) {
 
-        // TODO: Add other handlers.
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             getAccelerometer(event);
         }
@@ -217,57 +216,46 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
         }
         */
 
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getAmbientTemperature(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getGravity(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getGyroscope(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getLight(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getLinearAcceleration(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getMagneticField(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getPressure(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getProximity(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getRelativeHumidity(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
     private void getRotationVector(SensorEvent event) {
-        // TODO: add entropy to pool.
         addEntropy(event.values);
     }
 
@@ -299,7 +287,7 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
     public void updateText () {
         byte data[] = getPool().getBytes();
 
-        if (pool_iter == 2) {
+        if (pool_iter == 30) {
 
             // Publish randomness to hacktivity.org
 
@@ -319,13 +307,10 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
                 ioe.printStackTrace();
             }
 
-            //poolTextView.setText(data.toString());
-
             pool_iter = 0;
 
             {
                 // Send data to hacktivity.org;
-                //final byte[] postData = ("pool=" + Base64.encodeBytes(data)).getBytes();
                 final String postData = "pool=" + Base64.encodeBytes(data);
                 class SimpleThread extends Thread {
                     public SimpleThread(String str) {
@@ -334,7 +319,9 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
 
                     public void run() {
                         {
-                            try { Web.sendPost(postData); } catch (Exception e) {}
+                            try { Web.sendPost(
+                                    "https://hacktivity.org/yellowjacket/pool.php",
+                                    postData); } catch (Exception e) {}
                         }
                     }
                 }
@@ -350,23 +337,5 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
 
         poolTextView.setText(new String(data));
 
-        /*
-        try {
-            FileInputStream fIn = openFileInput("honeycomb.data");
-            InputStreamReader isr = new InputStreamReader(fIn);
-
-            char[] inputBuffer = new char[ENTROPY_POOL_SIZE];
-
-            // Fill the Buffer with data from the file
-            isr.read(inputBuffer);
-
-            // Transform the chars to a String
-            String readString = new String(inputBuffer);
-
-            poolTextView.setText(readString);
-
-        } catch (IOException ioe)
-        {ioe.printStackTrace();}
-        */
     }
 }
