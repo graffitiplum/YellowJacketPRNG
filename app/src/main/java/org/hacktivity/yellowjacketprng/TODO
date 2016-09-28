@@ -1,11 +1,13 @@
 package org.hacktivity.yellowjacketprng;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Handler;
+import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -14,6 +16,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -29,21 +32,20 @@ import java.util.TimerTask;
 
 import static java.sql.Types.NULL;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener {
+import org.hacktivity.BlumBlumShub;
 
-    // TODO: multiple entropy pools.
+public class MainActivity extends AppCompatActivity {
 
-    private static int ENTROPY_POOL_SIZE = 8192;
-    private static int BBS_KEYLEN = 2310;
 
-    private int[] pool = new int[ENTROPY_POOL_SIZE];
+
+    // TODO: create and maintain an entropy pool
+    private int ENTROPY_POOL_SIZE = 8192;
+    private int[] pool;
     private int pool_ctr = 0;
-    private int pool_iter = 0;
 
     private SensorManager sensorManager;
-    private BlumBlumShub bbs = new BlumBlumShub(BBS_KEYLEN);
+    private BlumBlumShub bbs = new BlumBlumShub(2310);
 
-    // timestamps for sensors
     private Sensor sensorAccelerometer;
     private Sensor sensorAmbientTemperature;
     private Sensor sensorGravity;
@@ -65,8 +67,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         poolTextView = (TextView) findViewById(R.id.poolTextView);
 
-        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-
         pool = new int[ENTROPY_POOL_SIZE];
 
         // Initialize entropy pool
@@ -79,20 +79,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         }
 
-        sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        sensorAmbientTemperature = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
-        sensorGravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
-        sensorGyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        sensorLight = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-        sensorLinearAcceleration = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-        sensorMagneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        sensorPressure = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
-        sensorProximity = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-        sensorRelativeHumidity = sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
-        sensorRotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-
         // List all sensors available
         //List<Sensor> deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
+
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+
+        sensorAccelerometer =      sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        sensorAmbientTemperature = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
+        sensorGravity =            sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+        sensorGyroscope =          sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        sensorLight =              sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        sensorLinearAcceleration = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        sensorMagneticField =      sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        sensorPressure =           sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        sensorProximity =          sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+        sensorRelativeHumidity =   sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
+        sensorRotationVector =     sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
 
         // run in the background.
         final Handler handler = new Handler();
@@ -155,7 +157,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     protected void onResume() {
-        super.onResume();
 
         sensorManager.registerListener(this, sensorAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         sensorManager.registerListener(this, sensorAmbientTemperature, SensorManager.SENSOR_DELAY_FASTEST);
@@ -172,7 +173,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     protected void onPause() {
-        super.onPause();
         sensorManager.unregisterListener(this);
     }
 
@@ -253,65 +253,34 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         addEntropy(event.values);
     }
 
-    private void addEntropy (float[] entropy) {
 
-        int i;
-        for (i=0;i<entropy.length;i++) {
-            this.pool[this.pool_ctr] = Float.floatToIntBits(this.pool[this.pool_ctr]) ^ Float.floatToIntBits(entropy[i]);
-
-            this.pool_ctr++;
-            if (this.pool_ctr == this.pool.length) {
-                this.pool_ctr = 0;
-            }
-        }
-    }
-
-    public String getPool() {
-
-        // TODO: Something better.
-        String ret = "";
-        int i;
-        for (i = 0; i < this.pool.length; i++) {
-            ret += (char) Integer.reverseBytes(this.pool[i]); // Get low bits
-        }
-
-        return (ret);
-    }
 
     public void updateText () {
 
-        if (pool_iter == 256) {
+        byte data[] = getRandom().getBytes();
+        try {
+            // catches IOException below
+            final String TESTSTRING = data.toString();
 
-            byte data[] = getPool().getBytes();
-            try {
-                // catches IOException below
-                final String TESTSTRING = data.toString();
+            FileOutputStream fOut = openFileOutput("honeycomb.data", NULL);
+            OutputStreamWriter osw = new OutputStreamWriter(fOut);
 
-                FileOutputStream fOut = openFileOutput("honeycomb.data", NULL);
-                OutputStreamWriter osw = new OutputStreamWriter(fOut);
+            // Write the string to the file
+            osw.write(TESTSTRING);
 
-                // Write the string to the file
-                osw.write(TESTSTRING);
-
-                osw.flush();
-                osw.close();
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-            }
-
-            pool_iter = 0;
-        }
-        else {
-            pool_iter++;
+            osw.flush();
+            osw.close();
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
         }
 
-        poolTextView.setText(getPool());
 
-        /*
         try {
             FileInputStream fIn = openFileInput("honeycomb.data");
             InputStreamReader isr = new InputStreamReader(fIn);
 
+        /* Prepare a char-Array that will
+         * hold the chars we read back in. */
             char[] inputBuffer = new char[ENTROPY_POOL_SIZE];
 
             // Fill the Buffer with data from the file
@@ -324,6 +293,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         } catch (IOException ioe)
         {ioe.printStackTrace();}
-        */
     }
+
+
 }
