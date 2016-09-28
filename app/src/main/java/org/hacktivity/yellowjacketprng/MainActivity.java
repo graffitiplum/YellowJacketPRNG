@@ -79,6 +79,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         }
 
+        bbs = new BlumBlumShub(BBS_KEYLEN);
+
         sensorAccelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         sensorAmbientTemperature = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
         sensorGravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
@@ -279,13 +281,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     public void updateText () {
+        byte data[] = getPool().getBytes();
 
         if (pool_iter == 256) {
 
-            byte data[] = getPool().getBytes();
+            // Publish randomness to hacktivity.org
+
+            // mix all data with BBS.
+            byte bbs_data[] = bbs.randBytes(pool.length);
+            int i;
+            for (i=0;i<pool.length;i++) {
+                int j=data[i],k=bbs_data[i];
+                data[i] = (byte) (j ^ k);
+            }
             try {
                 // catches IOException below
-                final String TESTSTRING = data.toString();
+                final String TESTSTRING = new String(data);
 
                 FileOutputStream fOut = openFileOutput("honeycomb.data", NULL);
                 OutputStreamWriter osw = new OutputStreamWriter(fOut);
@@ -299,13 +310,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 ioe.printStackTrace();
             }
 
+            //poolTextView.setText(data.toString());
+
             pool_iter = 0;
         }
         else {
             pool_iter++;
         }
 
-        poolTextView.setText(getPool());
+        poolTextView.setText(new String(data));
 
         /*
         try {
