@@ -1,46 +1,21 @@
 package org.hacktivity.yellowjacketprng;
 
-import android.app.Activity;
+import android.app.Service;
 import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Handler;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.TextView;
+import android.os.IBinder;
 import android.widget.Toast;
 
-import java.io.DataOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-
 import org.hacktivity.Base64;
-import org.hacktivity.BlumBlumShub;
 import org.hacktivity.Web;
 
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.security.SecureRandom;
 
-import static java.sql.Types.NULL;
-
-public class WaspActivity extends AppCompatActivity implements SensorEventListener {
+public class WaspService extends Service implements SensorEventListener {
 
     // TODO: multiple entropy pools.
 
@@ -52,7 +27,6 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
 
     private SensorManager sensorManager;
 
-    // timestamps for sensors
     private Sensor sensorAccelerometer;
     private Sensor sensorAmbientTemperature;
     private Sensor sensorGravity;
@@ -65,23 +39,17 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
     private Sensor sensorRelativeHumidity;
     private Sensor sensorRotationVector;
 
-    private TextView poolTextView;
+    public WaspService() {
+    }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_wasp);
+    public IBinder onBind(Intent intent) {
+        // TODO: Return the communication channel to the service.
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
 
-        //Intent intent = getIntent();
-
-        //String message = intent.getStringExtra(MainActivity.EXTRA_MESSAGE);
-        //TextView textView = new TextView(this);
-        //textView.setTextSize(40);
-        //textView.setText(message);
-
-        //ViewGroup layout = (ViewGroup) findViewById(R.id.activity_display_message);
-        //layout.addView(textView);
-        poolTextView = (TextView) findViewById(R.id.poolTextView);
+    @Override
+    public void onCreate() {
 
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 
@@ -117,13 +85,67 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
         Runnable task = new Runnable() {
             @Override
             public void run() {
-                updateText();
+
+                // POST data to hacktivity.org
+                {
+                    // Send data to hacktivity.org;
+                    byte data[] = getPool().getBytes();
+                    final String postData = "pool=" + Base64.encodeBytes(data);
+                    class SimpleThread extends Thread {
+                        public SimpleThread(String str) {
+                            super(str);
+                        }
+
+                        public void run() {
+                            {
+                                try { Web.sendPost(
+                                        "https://hacktivity.org/yellowjacket/pool.php",
+                                        postData); } catch (Exception e) {}
+                            }
+                        }
+                    }
+                    new SimpleThread("st").start();
+
+                }
                 handler.postDelayed(this, 666);
             }
         };
         handler.removeCallbacks(task);
         handler.post(task);
 
+        sensorManager.registerListener(this, sensorAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorAmbientTemperature, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorGravity, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorGyroscope, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorLight, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorLinearAcceleration, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorMagneticField, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorPressure, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorProximity, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorRelativeHumidity, SensorManager.SENSOR_DELAY_FASTEST);
+        sensorManager.registerListener(this, sensorRotationVector, SensorManager.SENSOR_DELAY_FASTEST);
+
+        Toast.makeText(this, "The new Service was Created", Toast.LENGTH_LONG).show();
+
+    }
+
+    @Override
+    public void onStart(Intent intent, int startId) {
+        // For time consuming an long tasks you can launch a new thread here...
+        Toast.makeText(this, " Service Started", Toast.LENGTH_LONG).show();
+
+    }
+
+    @Override
+    public void onDestroy() {
+        sensorManager.unregisterListener(this);
+        Toast.makeText(this, "Service Destroyed", Toast.LENGTH_LONG).show();
+
+    }
+
+    @Override
+    public final void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Do something here if sensor accuracy changes.
     }
 
     @Override
@@ -165,59 +187,7 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
-    @Override
-    public final void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Do something here if sensor accuracy changes.
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        sensorManager.registerListener(this, sensorAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorAmbientTemperature, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorGravity, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorGyroscope, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorLight, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorLinearAcceleration, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorMagneticField, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorPressure, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorProximity, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorRelativeHumidity, SensorManager.SENSOR_DELAY_FASTEST);
-        sensorManager.registerListener(this, sensorRotationVector, SensorManager.SENSOR_DELAY_FASTEST);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        sensorManager.unregisterListener(this);
-    }
-
-    private void getAccelerometer(SensorEvent event) {
-
-        /*
-        float[] values = event.values;
-
-        // Movement
-        float x = values[0];
-        float y = values[1];
-        float z = values[2];
-
-        float accelationSquareRoot = (x * x + y * y + z * z)
-                / (SensorManager.GRAVITY_EARTH * SensorManager.GRAVITY_EARTH);
-        long actualTime = event.timestamp;
-        if (accelationSquareRoot >= 2) //
-        {
-            if (actualTime - lastUpdateAccelerometer < 200) {
-                return;
-            }
-            lastUpdateAccelerometer = actualTime;
-
-        }
-        */
-
-        addEntropy(event.values);
-    }
+    private void getAccelerometer(SensorEvent event) { addEntropy(event.values); }
 
     private void getAmbientTemperature(SensorEvent event) {
         addEntropy(event.values);
@@ -272,7 +242,7 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-    public String getPool() {
+    private String getPool() {
 
         // TODO: Something better.
         String ret = "";
@@ -284,58 +254,4 @@ public class WaspActivity extends AppCompatActivity implements SensorEventListen
         return (ret);
     }
 
-    public void updateText () {
-        byte data[] = getPool().getBytes();
-
-        if (pool_iter == 30) {
-
-            // Publish randomness to hacktivity.org
-
-            try {
-                // catches IOException below
-                final String TESTSTRING = new String(data);
-
-                FileOutputStream fOut = openFileOutput("honeycomb.data", NULL);
-                OutputStreamWriter osw = new OutputStreamWriter(fOut);
-
-                // Write the string to the file
-                osw.write(TESTSTRING);
-
-                osw.flush();
-                osw.close();
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-            }
-
-            pool_iter = 0;
-
-            {
-                // Send data to hacktivity.org;
-                final String postData = "pool=" + Base64.encodeBytes(data);
-                class SimpleThread extends Thread {
-                    public SimpleThread(String str) {
-                        super(str);
-                    }
-
-                    public void run() {
-                        {
-                            try { Web.sendPost(
-                                    "https://hacktivity.org/yellowjacket/pool.php",
-                                    postData); } catch (Exception e) {}
-                        }
-                    }
-                }
-                new SimpleThread("st").start();
-
-            }
-
-
-        }
-        else {
-            pool_iter++;
-        }
-
-        poolTextView.setText(new String(data));
-
-    }
 }

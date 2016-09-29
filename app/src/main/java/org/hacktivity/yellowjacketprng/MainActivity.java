@@ -28,14 +28,22 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         poolTextView = (TextView) findViewById(R.id.poolTextView);
-
+/*
         Intent intent = new Intent(this, WaspActivity.class);
         //intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         //intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        //mServiceIntent.setData(Uri.parse(dataUrl));
         startActivity(intent);
+        */
     }
 
-    public void updateText () {
-
+    // Start the  service
+    public void startService(View view) {
+        startService(new Intent(this, WaspService.class));
     }
+            // Stop the  service
+    public void stopService(View view) {
+        stopService(new Intent(this, WaspService.class));
+    }
+
 }
