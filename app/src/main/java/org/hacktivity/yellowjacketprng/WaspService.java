@@ -13,13 +13,15 @@ import android.widget.Toast;
 import org.hacktivity.Base64;
 import org.hacktivity.Web;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 public class WaspService extends Service implements SensorEventListener {
 
-    // TODO: multiple entropy pools.
-
-    private static int ENTROPY_POOL_SIZE = 8192;
+    private static int ENTROPY_POOL_SIZE = 4096;
 
     private int[] pool = new int[ENTROPY_POOL_SIZE];
     private int pool_ctr = 0;
@@ -89,25 +91,44 @@ public class WaspService extends Service implements SensorEventListener {
                 // POST data to hacktivity.org
                 {
                     // Send data to hacktivity.org;
-                    byte data[] = getPool().getBytes();
-                    final String postData = "pool=" + Base64.encodeBytes(data);
-                    class SimpleThread extends Thread {
-                        public SimpleThread(String str) {
-                            super(str);
-                        }
+                    String data = "";
+                    /*
+                    try {
+                        //data = "pool=" + URLEncoder.encode(getPool(), "UTF-8");
 
-                        public void run() {
-                            {
-                                try { Web.sendPost(
-                                        "https://hacktivity.org/yellowjacket/pool.php",
-                                        postData); } catch (Exception e) {}
+                    } catch (UnsupportedEncodingException uee) {}
+                    */
+                    MessageDigest md;
+                    String hash = "";
+                    try {
+                        md = MessageDigest.getInstance("SHA-256");
+                        md.update(getPool().getBytes());
+                        hash = new String(md.digest());
+                    } catch (NoSuchAlgorithmException nsae) {}
+                    if (! hash.equals("")) {
+                        data = "pool=" + hash;
+                        final String postData = data;
+                        class SimpleThread extends Thread {
+                            public SimpleThread(String str) {
+                                super(str);
+                            }
+
+                            public void run() {
+                                {
+                                    try {
+                                        Web.sendPost(
+                                                "https://hacktivity.org/yellowjacket/pool.php",
+                                                postData);
+                                    } catch (Exception e) {
+                                    }
+                                }
                             }
                         }
+                        new SimpleThread("st").start();
                     }
-                    new SimpleThread("st").start();
 
                 }
-                handler.postDelayed(this, 666);
+                handler.postDelayed(this, 2310);
             }
         };
         handler.removeCallbacks(task);
@@ -125,21 +146,14 @@ public class WaspService extends Service implements SensorEventListener {
         sensorManager.registerListener(this, sensorRelativeHumidity, SensorManager.SENSOR_DELAY_FASTEST);
         sensorManager.registerListener(this, sensorRotationVector, SensorManager.SENSOR_DELAY_FASTEST);
 
-        Toast.makeText(this, "The new Service was Created", Toast.LENGTH_LONG).show();
-
-    }
-
-    @Override
-    public void onStart(Intent intent, int startId) {
-        // For time consuming an long tasks you can launch a new thread here...
-        Toast.makeText(this, " Service Started", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Yellow Jacket Started", Toast.LENGTH_LONG).show();
 
     }
 
     @Override
     public void onDestroy() {
         sensorManager.unregisterListener(this);
-        Toast.makeText(this, "Service Destroyed", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Yellow Jacket Stopped", Toast.LENGTH_LONG).show();
 
     }
 
@@ -244,11 +258,10 @@ public class WaspService extends Service implements SensorEventListener {
 
     private String getPool() {
 
-        // TODO: Something better.
         String ret = "";
         int i;
         for (i = 0; i < this.pool.length; i++) {
-            ret += (char) Integer.reverseBytes(this.pool[i]); // Get low bits
+            ret += (char) (Integer.reverseBytes(this.pool[i]) % 256); // Get low bits
         }
 
         return (ret);
